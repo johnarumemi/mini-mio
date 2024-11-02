@@ -1,0 +1,10 @@
+[package]
+name = "mini-mio"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+stdint = "^1.0.0"
+libc = "^0.2.161"
+mapr = "0.8.0"
+tempdir = "^0.3.7"
