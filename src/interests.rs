@@ -24,7 +24,7 @@ impl Interest {
 
     /// Add an interest via a bitwise or
     /// returns a new owned `Interest`
-    fn add_interest(self, other: Interest) -> Interest {
+    pub fn add_interest(self, other: Interest) -> Interest {
         Interest(self.0 | other.0)
     }
 
@@ -37,15 +37,15 @@ impl Interest {
     /// rhs       = 001000
     /// !rhs      = 110111
     /// lhs &!rhs = 100101 , 4th bit is now 0
-    fn remove_interest(self, other: Interest) -> Option<Interest> {
+    pub fn remove_interest(self, other: Interest) -> Option<Interest> {
         NonZeroU8::new(self.0.get() & !other.0.get()).map(Interest)
     }
 
-    fn is_readable(&self) -> bool {
+    pub fn is_readable(&self) -> bool {
         (self.0.get() & Self::READABLE.0.get()) != 0
     }
 
-    fn is_writable(&self) -> bool {
+    pub fn is_writable(&self) -> bool {
         (self.0.get() & Self::WRITABLE.0.get()) != 0
     }
 }
