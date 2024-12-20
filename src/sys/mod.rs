@@ -9,11 +9,16 @@
 //!     - MacOS: kevent
 //! - `Events`: a collection of "`Event`"s
 //! - `Selector`: used for interacting with the event queue. This will be
-//! used by the Registry for executing the lower level OS specific syscalls.
+//!    used by the Registry for executing the lower level OS specific syscalls.
 
-#[cfg(unix)]
-mod unix;
+#[allow(unused_imports)]
+pub(crate) mod constants;
 
-#[cfg(unix)]
-#[allow(unused_imports, dead_code)]
-pub use unix::*;
+#[allow(unused_imports)]
+mod events;
+
+#[allow(unused_imports)]
+pub use events::{OsEvent, OsEvents};
+
+#[allow(unused_imports)]
+pub mod selectors;

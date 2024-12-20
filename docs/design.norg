@@ -9,10 +9,11 @@
      Programming in Rust (Packt) Book.
   - Setup a kqueue interface for MacOS and BSD.
 
-* Module Layout
-  _Resources_
+* Resources
   - [epoll]{https://man7.org/linux/man-pages/man7/epoll.7.html}
   - [kqueue]{https://man.freebsd.org/cgi/man.cgi?kqueue}
+
+* Module Layout
 
 ** main
    Main program entry point
@@ -23,6 +24,36 @@
 
 ** poll
    This module contains the main abstraction layer over the *epoll api*.
+
+** interests
+
+** interfaces
+   Traits and types use for interfacing with the OS event queue ffi's and
+   data structures.
+
+   API calls across tha `sys` module are made using `Interest` and `Token`.
+   From which `sys` implementations convert to `OS` specific datastructures
+   and types and make required ffi syscalls. When this ffi syscalls return types
+   that contain OS specific datastructures, they are wrapped in an outher
+   `Event` and `Events` types defined within the `interface module`. The OS
+   specific types are required to implement traits that allow for
+   interpretation of their returned events, without the caller needing to
+   know any lower level implementation details.
+
+** sys
+
+   OS specific implementation details.
+
+   These will be conditionally compiled based on OS. Only one of these
+   flags should hold true. Importing from these modules should give
+   following types within this modules namespace:
+
+   - `OsEvent`: alias for the OS event queue type that holds the event
+   --- Linux: epoll_event
+   --- MacOS: kevent
+   - `OsEvents`: a collection of "`OsEvent`"s
+   - `Selector`: used for interacting with the event queue. This will be
+     used by the `Registry` for executing the lower level OS specific syscalls.
 
 * Core abstractions
 
@@ -48,6 +79,10 @@
    corresponding to the relevant syscalls to make IOCP, kqueue and epoll do
    the same thing.
 
+
+** SysSelector
+   Specifiy interface that all OS selectors, making ffi syscalls, must
+   implement. This enables `Poll` and `Registry` to agnostic to the OS.
 
 * Why separate out Poll and Registry?
 

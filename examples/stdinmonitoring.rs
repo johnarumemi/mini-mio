@@ -1,3 +1,6 @@
+//! This example demonstrates how to monitor
+//! standard input for read events using epoll.
+
 #![allow(dead_code, unused)]
 
 use std::io::{Read, Result, Write};

@@ -1,3 +1,8 @@
+//! This makes use of the delayserver found in [rust-async-utils][1].
+//! That must be up and running first for this basic example to work correctly.
+//!
+//! [1]: https://github.com/johnarumemi/rust-async-utils/tree/main/delayserver "Delayserver"
+
 #![allow(dead_code, unused)]
 
 use std::{

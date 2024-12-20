@@ -1,3 +1,5 @@
+//! This example demonstrates how to monitor a file for changes using kqueue.
+
 use std::ffi::c_char;
 use std::io::Write;
 use std::os::fd::{AsRawFd, FromRawFd};

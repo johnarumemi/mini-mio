@@ -1,41 +1,7 @@
-//! kqueue based structures and types
-
-use std::ops::{BitAnd, BitOr};
-
-/// Can also view a similar struct in the `libc` crate on ios/darwin
-/// Does not need to be packed. It is 32 bytes anyway, with no padding.
-#[derive(Debug)]
-#[repr(C)]
-pub struct Kevent {
-    /// Typically the file descriptor we are
-    /// interested in receiving notifications for.
-    pub ident: usize,
-    /// Identifies the kernel filter used to process this event.
-    pub filter: i16, // aliased to i16
-    /// Actions to perform on the event.
-    pub flags: u16, // aliased to u16
-    /// Filter flags.
-    pub fflags: u32, // aliased to u32
-    /// Aditional data passed to the filter.
-    pub data: isize, // aliased to isize
-    /// Opaque user data
-    pub udata: usize, // *mut ::c_void,
-}
-
-// linux x32 compatibility
-// See https://sourceware.org/bugzilla/show_bug.cgi?id=16437
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub struct timespec {
-    pub tv_sec: i64, // time_t = c_long =  i64
-    #[cfg(all(target_arch = "x86_64", target_pointer_width = "32"))]
-    pub tv_nsec: i64,
-    #[cfg(not(all(target_arch = "x86_64", target_pointer_width = "32")))]
-    pub tv_nsec: i64, // c_long = i64
-}
+#![allow(unused)]
 
 /// predefined system filters
-pub mod filters {
+pub(crate) mod filters {
     /// returns whenever there is data available to read.
     pub const EVFILT_READ: i16 = -1;
     /// returns whenever it is possible to write to the file descriptor.
@@ -60,7 +26,7 @@ pub mod filters {
 }
 
 /// Actions to perform on the event.
-pub mod flags {
+pub(crate) mod flags {
     ///  Adds the event to the kqueue. Also automatically enables (EV_ENABLE).
     pub const EV_ADD: u16 = 0x1;
     /// Remove the event from the kqueue. Events which are attached to file descriptors are

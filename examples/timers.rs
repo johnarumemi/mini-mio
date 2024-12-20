@@ -1,3 +1,6 @@
+//! This example demonstrates how to use the
+//! kqueue API to create a simple timer based event.
+
 use mini_mio::ffi::kqueue::*;
 
 fn main() {
