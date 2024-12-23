@@ -79,11 +79,20 @@ impl Iterator for IntoIter {
 /// purposes, but usually with single valued tuple structs. Lets experiment to
 /// see if it works with single valued struct fields.
 pub struct Iter<'a> {
-    /// reference to the `Events` collection
-    inner: &'a Events,
-    // The lifetime of the returned Event is tied to
-    // the lifetime of the `Events` collection.
-    pos: usize,
+    /// inner iterator that yields references to an OsEvent
+    inner: std::slice::Iter<'a, crate::sys::OsEvent>,
+}
+
+impl Events {
+    /// Returns an iterator over mutable references.
+    ///
+    /// Implemented via wrapping an inner iterator that yields OsEvents,
+    /// and returning this as an iterator that yields Events.
+    fn iter(&self) -> Iter<'_> {
+        Iter {
+            inner: self.inner.iter(),
+        }
+    }
 }
 
 impl<'a> IntoIterator for &'a Events {
@@ -91,34 +100,15 @@ impl<'a> IntoIterator for &'a Events {
     type IntoIter = Iter<'a>;
 
     // note thate `self` = &'a Events
-    fn into_iter(self) -> Iter<'a> {
+    fn into_iter(self) -> Self::IntoIter {
         self.iter()
     }
 }
 
-//  Review: Is there a way we can simply wrap the &'a Events iterator and use
-//  that only? current method of using `pos` is not ideal.
 impl<'a> Iterator for Iter<'a> {
     type Item = &'a Event;
     fn next(&mut self) -> Option<Self::Item> {
-        let next = self.inner.get(self.pos).map(Event::ref_from_sys_event);
-
-        self.pos += 1;
-
-        next
-    }
-}
-
-impl Events {
-    /// Returns an iterator over mutable references.
-    ///
-    /// Holds an immutable reference to the `Events` collection to ensure it is
-    /// not mutated while we are iterating over it.
-    fn iter(&self) -> Iter<'_> {
-        Iter {
-            inner: self,
-            pos: 0,
-        }
+        self.inner.next().map(Event::ref_from_sys_event)
     }
 }
 
