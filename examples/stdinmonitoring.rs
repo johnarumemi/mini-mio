@@ -7,8 +7,9 @@ use std::io::{Read, Result, Write};
 use std::os::fd::{AsRawFd, RawFd};
 use std::process;
 
-use mini_mio::ffi::epoll::{self as ffi, Event};
-use mini_mio::poll::{self, Poll};
+use mini_mio::interests::Interest;
+use mini_mio::interfaces::{Event, Events, SysEvent, SysSelector, Token};
+use mini_mio::poll::*;
 
 fn main() -> Result<()> {
     let process_id = process::id();
@@ -39,14 +40,11 @@ Running with process id: {}
     let num_events = 5;
 
     let max_events = 10;
-    let mut events = Vec::with_capacity(max_events);
+    let mut events = Events::with_capacity(max_events);
+    let interests = Interest::READABLE;
 
     // Register interest in being notified when file is ready to read
-    poll.registry().register(
-        &stdin,                      // source
-        0,                           // token
-        ffi::EPOLLIN | ffi::EPOLLET, // bitmask for read + edge-triggered
-    )?;
+    poll.registry().register(&stdin, Token(0), interests)?;
 
     // We will attempt to read from the file a few times
     for _ in 0..num_events {

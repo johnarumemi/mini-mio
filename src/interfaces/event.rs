@@ -1,3 +1,4 @@
+//! Event interface for handling an OS specific event.
 #![allow(unused)]
 use crate::interfaces::Token;
 use crate::sys;
@@ -26,9 +27,15 @@ impl Event {
 
 /// Wrapper around OS specific Event types
 ///
+/// It is important this this struct only contains one field, allowing the use of the
+/// repr(transparent) attribute. This attribute guarantees that the struct has the same layout as
+/// the field it contains. This allows us to safely cast between the raw immutable pointer to an
+/// OsEvent to a raw immutable pointer to a GenericEvent instead and allowing access to the
+/// GenericEvent methods.
+///
 /// Review: Is it really safe to clone these if underlying OsEvents might contain
 /// fields with pointers? Copying the pointer values might lead to double free.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 #[repr(transparent)]
 pub struct GenericEvent<T>
 where
@@ -39,6 +46,7 @@ where
 
 /// TODO: This is technically wrong, since the GenericEvent also implements SysEvent. Allowing
 /// it to technically wrap itself.
+/// The SysEvent now also needs to be public to enable usage of the `token()` method.
 impl<T> GenericEvent<T>
 where
     T: SysEvent,

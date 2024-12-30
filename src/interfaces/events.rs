@@ -18,7 +18,7 @@ impl From<Events> for crate::sys::OsEvents {
 }
 
 impl Events {
-    fn with_capacity(capacity: usize) -> Self {
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
             inner: crate::sys::OsEvents::with_capacity(capacity),
         }

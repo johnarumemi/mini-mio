@@ -16,6 +16,7 @@ const TIMER: u8 = 1 << 2; // 0b00000100
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct Interest(NonZeroU8);
 
+// TODO: rename to `Interests` plural, as the bitmask can consist of various flags.
 impl Interest {
     // Named constant value of type `Interest`
     // This is not associated with a memory location on the type, but

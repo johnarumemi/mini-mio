@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use super::SysEvent;
 
-pub(crate) trait SysSelector
+pub trait SysSelector
 where
     Self: Sized,
 {

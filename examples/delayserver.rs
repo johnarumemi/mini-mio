@@ -1,9 +1,8 @@
-//! This makes use of the delayserver found in [rust-async-utils][1].
-//! That must be up and running first for this basic example to work correctly.
-//!
-//! [1]: https://github.com/johnarumemi/rust-async-utils/tree/main/delayserver "Delayserver"
-
 #![allow(dead_code, unused)]
+
+use mini_mio::interests::Interest;
+use mini_mio::interfaces::{Event, Events, SysEvent, SysSelector, Token};
+use mini_mio::poll::*;
 
 use std::{
     collections::HashSet,
@@ -13,66 +12,23 @@ use std::{
     time::Duration,
 };
 
-use mini_mio::ffi::epoll::{self as ffi, Event};
-use mini_mio::poll::Poll;
-
 fn main() -> Result<()> {
     // Create a new event queue
     let mut poll = Poll::new()?;
-    let num_events = 5; // max events we are interested in
 
-    let mut streams = vec![];
-    let socket_addr = "host.docker.internal:8080";
+    // max events we want to create for this example program
+    let num_events = 2;
+
+    let host = std::env::var("HOST").unwrap_or_else(|_| "localhost".to_string());
+
+    let socket_addr = format!("{host}:8080");
+
+    // store stream id's that we have handled / gotten a response for
     let mut handled_ids: HashSet<usize> = HashSet::new();
 
-    for i in 0..num_events {
-        println!("-- Starting Request {i} --\n");
-        // first request has longest timeout, so expect
-        // responses to arrive in reverse order.
-        let delay = (num_events - i) * 1000;
-        println!("Delay: {} ms, for event i = {}", delay, i);
-        let url_path = format!("/{delay}/request-{i}");
-        let request = get_req(&url_path);
-        println!(
-            "Attempting to establish a connection: socket_addr: {}",
-            socket_addr
-        );
-        let mut stream = TcpStream::connect(socket_addr)?;
-        println!("Connection established, setting stream to nonblocking mode...");
-        // set non-blocking mode
-        stream.set_nonblocking(true)?;
-
-        println!("Writing out to stream...");
-        // send packet across stream / socket (non-blocking mode is enabled atm)
-        stream.write_all(&request)?;
-
-        // sleep for a while to simulate network latency
-        // and also ensure requests arrive in order in the server
-        thread::sleep(Duration::from_millis(50));
-
-        // register interest in being notified when steam is ready to read
-
-        println!("Registering stream {i} with epoll");
-        poll.registry().register(
-            &stream,                     // source
-            i,                           // token
-            ffi::EPOLLIN | ffi::EPOLLET, // bitmask for read + edge-triggered
-        )?;
-
-        // NOTE following:
-        // EPOLLIN  = 00000000000000000000000000000001
-        // EPOLLET  = 10000000000000000000000000000000
-        // inerests = 10000000000000000000000000000001
-        // decimal  = 2147483649
-        //
-        // hence Event.events: u32 = 214748364
-
-        // store stream
-        println!("Storing stream...");
-        streams.push(stream);
-
-        println!("\n-- Completing Request {i} --\n\n");
-    }
+    // Open a connections to a server and send http request.
+    // Store tcp streams to be polled for read events later.
+    let mut streams = send_requests(poll.registry(), num_events, &socket_addr)?;
 
     println!("Completed sending all requests and registering streams with epoll\n\n");
 
@@ -86,11 +42,12 @@ fn main() -> Result<()> {
     let mut handled_events = 0;
 
     // do below while we haven't got a response from all the requests
+    // Note that we are using edge-triggered mode, so we need to drain the buffer completely.
     while handled_events < num_events {
-        let mut events = Vec::with_capacity(10);
+        let mut events = Events::with_capacity(10);
 
-        // register interest in being notified when steam is ready to read
-        poll.poll(&mut events, None)?; // block indefinitely
+        // poll for events
+        poll.poll(&mut events, None)?;
 
         // reach here when thread is woken up
         if events.is_empty() {
@@ -105,6 +62,66 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn send_requests(
+    registry: &Registry,
+    num_events: usize,
+    socket_addr: &str,
+) -> Result<Vec<TcpStream>> {
+    let mut streams = vec![];
+
+    // Open a connections to a server and send http request.
+    // Store tcp streams to be polled for read events later.
+    for i in 0..num_events {
+        println!(">>> Starting Request {i} >>>\n");
+        // first request has longest timeout, so expect
+        // responses to arrive in reverse order.
+        let delay = (num_events - i) * 1000;
+        println!("Delay: {} ms, for event i = {}", delay, i);
+        let url_path = format!("/{delay}/request-{i}");
+        let request = get_req(&url_path);
+        println!(
+            "Attempting to establish a connection: socket_addr: {}",
+            socket_addr
+        );
+        let mut stream = TcpStream::connect(socket_addr)?;
+        println!("Connection established");
+
+        // Disable the Nagle algorithm. This algorithm is enabled by default in Rust
+        // implementations, and it can cause a delay in sending packets. It pools together
+        // packets and sends them all at once, which can useful for reducing network congestion.
+        println!("Disabling Nagle on stream...");
+        stream.set_nodelay(true);
+
+        println!("Setting stream to nonblocking mode...");
+        // set non-blocking mode
+        stream.set_nonblocking(true)?;
+
+        println!("Writing out to stream...");
+        // send packet across stream / socket (non-blocking mode is enabled atm)
+        stream.write_all(&request)?;
+
+        // sleep for a while to simulate network latency
+        // and also ensure requests arrive in order on the server
+        thread::sleep(Duration::from_millis(50));
+
+        // register interest in being notified when stream is ready to read
+        let token = Token(i);
+
+        let interests = Interest::READABLE;
+
+        println!("Registering stream {i} with event queue...");
+        registry.register(&stream, token, interests)?;
+
+        // store stream
+        println!("Storing stream...");
+        streams.push(stream);
+
+        println!("\n<<< Completed Request {i} <<<\n\n");
+    }
+
+    Ok(streams)
+}
+
 fn get_req(path: &str) -> Vec<u8> {
     let req = format!(
         "GET {path} HTTP/1.1\r\n\
@@ -117,19 +134,24 @@ fn get_req(path: &str) -> Vec<u8> {
 }
 
 fn handle_events(
-    events: &[Event],
+    events: &Events,
     streams: &mut [TcpStream],
     handled_ids: &mut HashSet<usize>,
 ) -> Result<usize> {
     let mut handled_events = 0;
 
-    for event in events {
-        println!("\n------------------------------------\n");
-        ffi::print_event_debug(event);
-        ffi::check(event.interests as i32);
+    println!("\n------------------------------------\n");
+    println!("Handling events...");
+    println!("num_events: {}", events.len());
+    println!("\n------------------------------------\n");
 
-        let index = event.token();
-        let mut data = vec![0u8; 4096]; // 4KB buffer
+    for event in events {
+        let token = event.token();
+        let identifier = token.0;
+        println!("Processing event {identifier}: {event:?}");
+        println!("\n------------------------------------\n");
+
+        let mut buffer = vec![0u8; 4096]; // 4KB buffer
 
         let mut i = 0_usize;
         let mut txt = String::new();
@@ -139,12 +161,13 @@ fn handle_events(
             // use a loop to ensure we drain the buffer.
             // This is important for edge-triggered mode, as if the buffer isn't
             // drained, then it will never reset to notify us of new events.
-            match streams[index].read(&mut data) {
+            match streams[identifier].read(&mut buffer) {
                 Ok(0) => {
                     // read 0 bytes - buffer has been drained successfully
 
                     // `insert` returns false if the value already existed in the set.
-                    if !handled_ids.insert(index) {
+                    if !handled_ids.insert(identifier) {
+                        println!("Event already handled");
                         break;
                     }
 
@@ -160,7 +183,7 @@ fn handle_events(
                 }
                 Ok(n) => {
                     // read in `n` bytes successfully
-                    let txt = String::from_utf8_lossy(&data[..n]);
+                    let txt = String::from_utf8_lossy(&buffer[..n]);
                     if new_response {
                         println!("\n--- Response ---");
                         new_response = false;
@@ -168,9 +191,15 @@ fn handle_events(
                     print!("{txt}");
                     i = i.saturating_add(1);
                 }
-                Err(e) if e.kind() == io::ErrorKind::WouldBlock => break,
+                Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
+                    println!("\n\nWouldBlock error, breaking out of loop...");
+                    break;
+                }
                 // if the read operation is interrupted (e.g. signal from OS), we can continue
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => break,
+                Err(e) if e.kind() == io::ErrorKind::Interrupted => {
+                    println!("\n\nnRead operation interrupted, continuing...");
+                    break;
+                }
                 Err(e) => return Err(e),
             }
         }

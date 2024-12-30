@@ -9,10 +9,10 @@ mod sysselector;
 mod token;
 
 #[allow(unused_imports)]
-pub(crate) use sysselector::SysSelector;
+pub use sysselector::SysSelector;
 
 #[allow(unused_imports)]
-pub(crate) use sysevent::SysEvent;
+pub use sysevent::SysEvent;
 
 #[allow(unused_imports)]
 pub use event::Event;

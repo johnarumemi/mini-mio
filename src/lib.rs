@@ -2,5 +2,6 @@ pub mod ffi;
 pub mod interests;
 pub mod poll;
 
-mod interfaces;
+pub mod interfaces;
+
 mod sys;

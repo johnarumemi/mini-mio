@@ -46,7 +46,9 @@ impl SysSelector for Selector {
         // Currently supported filters are for reading and writing only, hence
         // multiple events might need to be created
 
-        let flags = flags::EV_ADD;
+        // It is important to set EV_CLEAR or kqueue will not reset the event after it has been
+        // triggered. i.e. by default is behaves in a level triggered mode.
+        let flags = flags::EV_CLEAR | flags::EV_RECEIPT | flags::EV_ADD;
 
         // TODO: move to using preallocated arrays. However, MaybeUninit will not drop T
         // when it is dropped.
@@ -181,7 +183,12 @@ impl SysSelector for Selector {
         events: &mut Self::OsEvents,
         timeout: Option<std::time::Duration>,
     ) -> io::Result<usize> {
-        let timeout: timespec = timeout.into();
+        let timeout: Option<timespec> = timeout.map(Into::into);
+
+        let timeout = timeout
+            .as_ref()
+            .map(|s| s as *const _)
+            .unwrap_or(std::ptr::null());
 
         events.clear();
 
@@ -192,7 +199,7 @@ impl SysSelector for Selector {
                 0,
                 events.as_mut_ptr(),
                 events.capacity() as i32,
-                &timeout as *const _,
+                timeout,
             )
         };
 

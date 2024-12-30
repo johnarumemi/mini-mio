@@ -77,23 +77,19 @@ extern "C" {
 #[derive(Debug)]
 pub(super) struct timespec {
     pub tv_sec: i64, // time_t = c_long =  i64
+
     #[cfg(all(target_arch = "x86_64", target_pointer_width = "32"))]
     pub tv_nsec: i64,
+
     #[cfg(not(all(target_arch = "x86_64", target_pointer_width = "32")))]
-    pub tv_nsec: i64, // c_long = i64
+    pub tv_nsec: libc::c_long, // c_long = i64
 }
 
-impl From<Option<std::time::Duration>> for timespec {
-    fn from(timeout: Option<std::time::Duration>) -> Self {
-        match timeout {
-            Some(duration) => timespec {
-                tv_sec: duration.as_secs() as i64,
-                tv_nsec: duration.subsec_nanos() as i64,
-            },
-            None => timespec {
-                tv_sec: 0,
-                tv_nsec: 0,
-            },
+impl From<std::time::Duration> for timespec {
+    fn from(timeout: std::time::Duration) -> Self {
+        timespec {
+            tv_sec: timeout.as_secs() as i64,
+            tv_nsec: timeout.subsec_nanos() as i64,
         }
     }
 }
@@ -106,7 +102,7 @@ mod tests {
     fn test_convert_to_timespec() {
         let duration = std::time::Duration::from_secs(5);
 
-        let timespec = timespec::from(Some(duration));
+        let timespec = timespec::from(duration);
 
         assert_eq!(timespec.tv_sec, 5);
         assert_eq!(timespec.tv_nsec, 0);
