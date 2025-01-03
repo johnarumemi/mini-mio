@@ -17,7 +17,7 @@ fn main() -> Result<()> {
     let mut poll = Poll::new()?;
 
     // max events we want to create for this example program
-    let num_events = 2;
+    let num_events = 5;
 
     let host = std::env::var("HOST").unwrap_or_else(|_| "localhost".to_string());
 

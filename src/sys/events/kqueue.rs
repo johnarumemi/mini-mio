@@ -1,7 +1,5 @@
 //! kqueue based structures and types
 use crate::interfaces::SysEvent;
-use std::ops::{BitAnd, BitOr};
-
 use crate::sys::constants::kqueue::{filters, flags};
 
 /// Kevent is the event structure used by kqueue.

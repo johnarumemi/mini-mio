@@ -5,6 +5,13 @@
 //!     - Linux: epoll_event
 //!     - MacOS: kevent
 //! - `OsEvents`: a collection of "`Event`"s
+
+#[cfg(target_os = "linux")]
+pub mod epoll;
+
+#[cfg(target_os = "linux")]
+pub use epoll::{OsEvent, OsEvents};
+
 #[cfg(target_os = "macos")]
 pub mod kqueue;
 
