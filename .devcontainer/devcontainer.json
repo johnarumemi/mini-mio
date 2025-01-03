@@ -7,6 +7,9 @@
 	"features": {
 		"ghcr.io/guiyomh/features/vim:0": {}
 	},
+	"containerEnv": {
+        "HOST": "host.docker.internal"
+    },
 
 	// Use 'mounts' to make the cargo cache persistent in a Docker Volume.
 	// "mounts": [
