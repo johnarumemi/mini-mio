@@ -13,43 +13,10 @@
 
 #![allow(dead_code, unused)]
 
-mod events;
+use std::mem::MaybeUninit;
+use std::ops::{BitAnd, BitOr};
 
-pub use events::*;
-
-// repr(packed) forces Rust to strip any padding, and only align the type to a byte
-// note: The OS syscall expects the struct we use to be packed.
-#[derive(Debug)]
-#[repr(C)]
-#[cfg_attr(target_arch = "x86_64", repr(packed))] // only use packed on x86_64
-pub struct Event {
-    // bitmask of events that we are interested in
-    pub interests: u32,
-
-    // token to identify event source
-    pub(crate) epoll_data: usize,
-}
-
-impl Event {
-    pub fn token(&self) -> usize {
-        self.epoll_data
-    }
-}
-// ------------------------------------------------------------
-// System calls
-// ------------------------------------------------------------
-
-pub mod op {
-    // opcode for adding / deleting and modifying fd in epoll event queue
-    // taken from : /usr/include/aarch64-linux-gnu/sys/epoll.h
-    pub const EPOLL_CTL_ADD: i32 = 1; // Add a file descriptor to the interface.
-    pub const EPOLL_CTL_DEL: i32 = 2; // Remove a file descriptor from the interface.
-    pub const EPOLL_CTL_MOD: i32 = 3; // Change file descriptor epoll_event structure.
-}
-
-// bitflags for events we are interested in
-pub const EPOLLIN: i32 = 0x1; // read operations on the file handle
-pub const EPOLLET: i32 = 1 << 31; // edge-triggered mode
+use crate::sys::events::epoll::OsEvent;
 
 // #[cfg(target_os = "linux")]
 #[link(name = "c")] // link to C standard library / libc
@@ -99,7 +66,7 @@ extern "C" {
     /// epdf: file descriptor returned by epoll_create
     /// op: one of EPOLL_CTL_ADD, EPOLL_CTL_MOD, EPOLL_CTL_DEL
     /// fd: target file descriptor (Source)
-    pub fn epoll_ctl(epfd: i32, op: i32, fd: i32, event: *mut Event) -> i32;
+    pub fn epoll_ctl(epfd: i32, op: i32, fd: i32, event: *mut OsEvent) -> i32;
 
     /// wait for an I/O event on an epoll file descriptor (blocking)
     ///
@@ -107,35 +74,5 @@ extern "C" {
     /// use as to what events occured when the thread is woken  up or when it times out.
     ///
     /// https://man7.org/linux/man-pages/man2/epoll_wait.2.html
-    pub fn epoll_wait(epfd: i32, events: *mut Event, max_events: i32, timeout: i32) -> i32;
-}
-
-pub fn check(bitmask: i32) {
-    const EPOLLIN: i32 = 0x1;
-    const EPOLLET: i32 = 1 << 31;
-    const EPOLLONESHOT: i32 = 0x40000000;
-
-    let a = bitmask & EPOLLIN;
-    let read = bitmask & EPOLLIN != 0;
-    let et = bitmask & EPOLLET != 0;
-    let oneshot = bitmask & EPOLLONESHOT != 0;
-
-    println!("read event? {read}, edge-triggered? {et}, oneshot? {oneshot}\n\n");
-    println!("BITMASK: {bitmask:032b}");
-    println!("EPOLLONESHOT: {EPOLLONESHOT:032b}");
-    println!("EPOLLIN: {EPOLLIN:032b}");
-    println!("EPOLLIN & BITMASK: {a:032b}");
-}
-
-#[cfg(not(target_arch = "x86_64"))]
-pub fn print_event_debug(event: &Event) {
-    println!("Registering interest in event: {event:?}");
-    println!("event.events  (interest) : {:032b}", event.interests);
-    println!("event.epoll_data (token) : {}", event.epoll_data);
-}
-
-#[cfg(target_arch = "x86_64")]
-pub fn print_event_debug(event: &Event) {
-    // Below is due to using repr(packed) and unaligned access
-    println!("No event debug on x86_64");
+    pub fn epoll_wait(epfd: i32, events: *mut OsEvent, max_events: i32, timeout: i32) -> i32;
 }
