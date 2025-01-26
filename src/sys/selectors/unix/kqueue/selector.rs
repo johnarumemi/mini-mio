@@ -133,7 +133,9 @@ impl SysSelector for Selector {
         token: Token,
         interests: Interest,
     ) -> io::Result<()> {
-        todo!()
+        // I don't believe there are different filters or flags that need
+        // to be used when reregistering an event.
+        self.register(fd, token, interests)
     }
 
     fn deregister(&self, fd: RawFd) -> io::Result<()> {
